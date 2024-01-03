@@ -264,7 +264,7 @@
                         "Arn"
                     ]
                 },
-                "Runtime": "python3.6",
+                "Runtime": "python3.9",
                 "Timeout": 10,
                 "VpcConfig" : {"SecurityGroupIds" : [{"Fn::GetAtt": ["TrustMechanismPTASecurityGroup", "GroupId"]}],
 							"SubnetIds" : [{"Ref": "ComponentsSubnet"}]
@@ -288,7 +288,7 @@
                         "Arn"
                     ]
                 },
-                "Runtime": "python3.6",
+                "Runtime": "python3.9",
                 "Timeout": 240,
                 "VpcConfig" : {"SecurityGroupIds" : [{"Fn::GetAtt": ["PTAInfraDetectLambdaSecurityGroup", "GroupId"]}],
 							"SubnetIds" : [{"Ref": "ComponentsSubnet"}]
@@ -356,7 +356,7 @@
                         "Arn"
                     ]
                 },
-                "Runtime": "python2.7",
+                "Runtime": "python3.9",
                 "Timeout": 35,
                 "VpcConfig": {
                     "SecurityGroupIds": [
