@@ -263,7 +263,7 @@ def change_rsyslog(instanceAccountPasswordFile, instanceDetails, instanceUsernam
     stdin.flush()
     data = stdout.read().decode('ascii').strip("\n")
     if data == expected_result:
-        stdin, stdout, stderr = sshclient.exec_command("sudo sh -c \"echo 'authpriv.*   @{0}:11514' >> /etc/rsyslog.conf\"".format(ptaIp))
+        stdin, stdout, stderr = sshclient.exec_command("sudo sh -c \"echo 'authpriv.*   @{0}:11514' > /etc/rsyslog.d/pta.conf\"".format(ptaIp))
         stdin.flush()
         stdin, stdout, stderr = sshclient.exec_command("sudo systemctl restart rsyslog")
     sshclient.close()

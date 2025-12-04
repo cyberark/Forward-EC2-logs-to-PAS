@@ -21,13 +21,14 @@ def lambda_handler(event, context):
         # only deleting the vault_pass from parameter store
         if event['RequestType'] == 'Delete':
             if not delete_password_from_param_store():
-                return cfnresponse.send(event, context, cfnresponse.FAILED,
-                                        "Failed to delete 'PTA_Vault_Password' from parameter store, see detailed error in logs", {}, physicalResourceId)
+                return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": "Failed to delete 'PTA_Vault_Password' from parameter store, see detailed error in logs"}, physicalResourceId)
             delete_sessions_table()
-            return cfnresponse.send(event, context, cfnresponse.SUCCESS, None, {}, physicalResourceId)
+            return cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, physicalResourceId)
 
+        if event['RequestType'] == 'Update':
+            return cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, physicalResourceId)
+        
         if event['RequestType'] == 'Create':
-
             requestUsername = event['ResourceProperties']['Username']
             requestPvwaIp = event['ResourceProperties']['PVWAIP']
             requestPassword = event['ResourceProperties']['Password']
@@ -39,53 +40,42 @@ def lambda_handler(event, context):
 
             isPasswordSaved = save_password_to_param_store(requestPassword)
             if not isPasswordSaved:  # if password failed to be saved
-                return cfnresponse.send(event, context, cfnresponse.FAILED, "Failed to create Vault user's password in Parameter Store",
-                                        {}, physicalResourceId)
+                return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": "Failed to create Vault user's password in Parameter Store"}, physicalResourceId)
 
             pvwaSessionId = logon_pvwa(requestUsername, requestPassword, requestPvwaIp)
             if not pvwaSessionId:
-                return cfnresponse.send(event, context, cfnresponse.FAILED, "Failed to connect to PVWA, see detailed error in logs",
-                                        {}, physicalResourceId)
+                return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": "Failed to connect to PVWA, see detailed error in logs"}, physicalResourceId)
 
             if not create_session_table():
-                return cfnresponse.send(event, context, cfnresponse.FAILED,
-                                        "Failed to create 'PTASessions' table in DynamoDB, see detailed error in logs",
-                                        {}, physicalResourceId)
+                return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": "Failed to create 'PTASessions' table in DynamoDB, see detailed error in logs"}, physicalResourceId)
 
             #  Creating KeyPair Safe
             isSafeCreated = create_safe(requestKeyPairSafe, "", requestPvwaIp, pvwaSessionId)
             if not isSafeCreated:
-                return cfnresponse.send(event, context, cfnresponse.FAILED,
-                                        "Failed to create the Key Pairs safe: {0}, see detailed error in logs".format(requestKeyPairSafe),
-                                        {}, physicalResourceId)
+                return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": f"Failed to create the Key Pairs safe: {requestKeyPairSafe}, see detailed error in logs"}, physicalResourceId)
 
             #  key pair is optional parameter
             if not requestKeyPairName:
                 print("Key Pair name parameter is empty, the solution will not create a new Key Pair")
-                return cfnresponse.send(event, context, cfnresponse.SUCCESS, None, {}, physicalResourceId)
+                return cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, physicalResourceId)
             else:
                 awsKeypair = create_new_key_pair_on_AWS(requestKeyPairName)
 
                 if awsKeypair is False:
                     # Account already exist, no need to create it, can't insert it to the vault
-                    return cfnresponse.send(event, context, cfnresponse.FAILED, "Failed to create Key Pair '{0}' in AWS".format(requestKeyPairName),
-                                            {}, physicalResourceId)
+                    return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": f"Failed to create Key Pair '{requestKeyPairName}' in AWS"}, physicalResourceId)
                 if awsKeypair is True:
-                    return cfnresponse.send(event, context, cfnresponse.FAILED, "Key Pair '{0}' already exists in AWS".format(requestKeyPairName),
-                                            {}, physicalResourceId)
+                    return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": f"Key Pair '{requestKeyPairName}' already exists in AWS"}, physicalResourceId)
                 # Create the key pair account on KeyPairs vault
                 isAwsAccountCreated = create_key_pair_in_vault(pvwaSessionId, requestKeyPairName, awsKeypair, requestPvwaIp,
                                                               requestKeyPairSafe, requestAWSAccountId, requestAWSRegionName)
                 if not isAwsAccountCreated:
-                    return cfnresponse.send(event, context, cfnresponse.FAILED,
-                                            "Failed to create Key Pair {0} in safe {1}. see detailed error in logs".format(requestKeyPairName, requestKeyPairSafe),
-                                            {}, physicalResourceId)
+                    return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": f"Failed to create Key Pair {requestKeyPairName} in safe {requestKeyPairSafe}. See detailed error in logs"}, physicalResourceId)
 
-                return cfnresponse.send(event, context, cfnresponse.SUCCESS, None, {}, physicalResourceId)
-
+                return cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, physicalResourceId)
     except Exception as e:
         print("Exception occurred:{0}:".format(e))
-        return cfnresponse.send(event, context, cfnresponse.FAILED, "Exception occurred: {0}".format(e), {})
+        return cfnresponse.send(event, context, cfnresponse.FAILED, {"Error": f"Exception occurred: {e}"}, event.get("PhysicalResourceId", context.log_stream_name))
 
     finally:
         if 'pvwaSessionId' in locals():  # pvwaSessionId has been declared
